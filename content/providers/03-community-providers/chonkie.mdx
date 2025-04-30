@@ -1,0 +1,125 @@
+---
+title: Chonkie
+description: Integrate with Chonkie for advanced text chunking using the AI SDK.
+---
+
+# Chonkie Provider
+
+[Chonkie](https://chonkie.ai/) provides various advanced text chunking strategies via API.
+This provider allows you to use Chonkie's chunking capabilities within the AI SDK framework.
+
+Since Chonkie performs chunking rather than text generation, its integration differs slightly from typical LLM providers. 
+The `generate` function effectively performs the chunking operation, and the resulting chunks are returned in the 
+`providerMetadata.chunks` field of the result.
+
+## Setup
+
+### Install the provider
+
+```bash npm2yarn
+npm install @ai-sdk/chonkie
+```
+
+### Provider Instance
+
+Create the Chonkie provider instance:
+
+```ts filename="~/utils/chonkie-provider.ts"
+import { createChonkie } from '@ai-sdk/chonkie';
+
+export const chonkie = createChonkie({
+  // Optional: Provide API key directly
+  // apiKey: 'YOUR_CHONKIE_API_KEY',
+  // Optional: Set custom base URL
+  // baseURL: '...',
+});
+```
+
+By default, the provider reads the API key from the `CHONKIE_API_KEY` environment variable.
+
+## Usage
+
+Use the `generate` function, setting `model` as the desired chunking strategy.
+
+```ts filename="~/app/api/chunk/route.ts"
+import { chonkie } from '~/utils/chonkie-provider';
+import { generate } from 'ai';
+
+export async function POST(req: Request) {
+  const { textToChunk } = await req.json();
+
+  const { providerMetadata } = await generate({
+    // Select the chunking strategy, e.g., 'sentence'
+    model: chonkie('sentence', {
+      // Provide strategy-specific settings
+      chunk_size: 256,
+      chunk_overlap: 20,
+    }),
+    prompt: textToChunk, // Pass the text directly as the prompt
+  });
+
+  // Extract the chunks from providerMetadata
+  const chunks = providerMetadata?.chunks;
+
+  return Response.json({ chunks });
+}
+```
+
+### Available Models and Settings
+
+The `modelId` passed to the `chonkie()` factory corresponds to the Chonkie API endpoint:
+
+-   `'token'`: Token Chunker (`/v1/chunk/token`)
+-   `'sentence'`: Sentence Chunker (`/v1/chunk/sentence`)
+-   `'recursive'`: Recursive Chunker (`/v1/chunk/recursive`)
+-   `'semantic'`: Semantic Chunker (`/v1/chunk/semantic`)
+-   `'sdpm'`: SDPM Chunker (`/v1/chunk/sdpm`)
+-   `'late'`: Late Chunker (`/v1/chunk/late`)
+-   `'code'`: Code Chunker (`/v1/chunk/code`)
+-   `'neural'`: Neural Chunker (`/v1/chunk/neural`)
+-   `'slumber'`: Slumber Chunker (`/v1/chunk/slumber`)
+
+Each model accepts specific settings corresponding to the API parameters defined in the [Chonkie API documentation](https://docs.chonkie.ai/api-reference). Refer to the `ChonkieChunkerSettings` types in `@ai-sdk/chonkie` or the API documentation for available options.
+
+Example using the Recursive Chunker with a specific recipe:
+
+```ts
+const { providerMetadata } = await generate({
+  model: chonkie('recursive', {
+    chunk_size: 1024,
+    recipe: 'markdown', // Use the markdown recipe
+    lang: 'en',
+  }),
+  prompt: markdownText,
+});
+
+const recursiveChunks = providerMetadata?.chunks;
+```
+
+### Result Format
+
+The `generate` function returns a standard AI SDK result object. The actual chunks produced by Chonkie are located in the `providerMetadata.chunks` field. The `text` field of the result will typically be empty as Chonkie doesn't generate a single text response.
+
+```ts
+// Example structure of providerMetadata.chunks for Sentence Chunker
+[
+  {
+    "text": "This is the first sentence chunk.",
+    "start_index": 0,
+    "end_index": 31,
+    "token_count": 7,
+    "sentences": [ /* SentenceSchema objects */ ]
+  },
+  {
+    "text": "This is the second chunk, containing more sentences.",
+    "start_index": 32,
+    "end_index": 85,
+    "token_count": 10,
+    "sentences": [ /* SentenceSchema objects */ ]
+  }
+  // ... more chunks
+]
+```
+
+Refer to the [Chonkie API documentation](https://docs.chonkie.ai/api-reference) 
+for the specific structure of chunks returned by each strategy.
