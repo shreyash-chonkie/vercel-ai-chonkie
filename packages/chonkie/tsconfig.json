@@ -1,5 +1,0 @@
-{
-  "extends": "../../tools/tsconfig/ts-library.json",
-  "include": ["src/**/*.ts"],
-  "exclude": ["dist", "node_modules"]
-}
